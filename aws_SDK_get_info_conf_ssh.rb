@@ -6,22 +6,14 @@ home = "/root"
 regions = Array.new
 hosts_list = Array.new
 
-File.open("#{home}/.aws/config").each do |line|
-  if line.match("region")
-    regions << line[9..-2]
-  end
-end
+File.open("#{home}/.aws/config").each { |line| regions << line[9..-2] if line.match("region") }
 
 for r in regions
   ec2 = Aws::EC2::Resource.new(region: "#{r}")
   ec2.instances.each do |instance|
     if instance.state.name == "running"
       hosts_list << instance.public_dns_name
-      instance.tags.each do |tag|
-        if tag.key == "Name"
-          hosts_list << tag.value
-        end
-      end
+      instance.tags.each { |tag| hosts_list << tag.value if tag.key == "Name" }
     end
   end
 end
