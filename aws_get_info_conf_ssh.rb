@@ -4,15 +4,9 @@ home = "/root"
 regions = Array.new
 hosts_list = Array.new
 
-File.open("#{home}/.aws/config").each do |line|
-  if line.match("region")
-    regions << line[9..-2]
-  end
-end
+File.open("#{home}/.aws/config").each { |line| regions << line[9..-2] if line.match("region") }
 
-for i in regions
-    hosts_list.concat(`aws ec2 describe-instances --region #{i} --query 'Reservations[*].Instances[*].[PublicDnsName,Tags[?Key==\`Name\`].Value]' --filters "Name=instance-state-name,Values=running"`.split("\"").grep(/^[\w]/))
-end
+regions.each { |i| hosts_list.concat(`aws ec2 describe-instances --region #{i} --query 'Reservations[*].Instances[*].[PublicDnsName,Tags[?Key==\`Name\`].Value]' --filters "Name=instance-state-name,Values=running"`.split("\"").grep(/^[\w]/)) }
 
 i = 0
 while i <= hosts_list.size()/2
