@@ -1,4 +1,4 @@
-#!/opt/puppetlabs/puppet/bin/ruby
+#!/usr/bin/ruby
 
 require 'aws-sdk-ec2'
 
