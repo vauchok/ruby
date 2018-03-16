@@ -2,12 +2,15 @@
 
 require 'aws-sdk-ec2'
 
+#define variables
 home = "/root"
 regions = Array.new
 hosts_list = Array.new
 
+#searching and saving information about aws regions from ~/.aws/config
 File.open("#{home}/.aws/config").each { |line| regions << line[9..-2] if line.match("region") }
 
+#searching and saving information about ec2 instances from aws
 for r in regions
   ec2 = Aws::EC2::Resource.new(region: "#{r}")
   ec2.instances.each do |instance|
@@ -18,6 +21,7 @@ for r in regions
   end
 end
 
+#save information about ec2 instances to ~/.ssh/config
 i = 0
 while i <= hosts_list.size()/2
   out_file = File.new("#{home}/.ssh/config", "a")
