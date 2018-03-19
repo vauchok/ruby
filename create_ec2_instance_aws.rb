@@ -8,11 +8,11 @@ vpc_net = '172.31.0.0/16'
 sub_net = '172.31.16.0/20'
 key = 'test'
 
+ec2 = Aws::EC2::Resource.new(region: 'us-east-1')
+
 def tag(method, name)
   method.create_tags({ tags: [{ key: 'Name', value: name }]})
 end
-
-ec2 = Aws::EC2::Resource.new(region: 'us-east-1')
 
 #Creating an Amazon EC2 VPC
 vpc = ec2.create_vpc({ cidr_block: vpc_net })
@@ -70,28 +70,29 @@ tag(sg, 'MySecurityGroup')
 
 #Creating an Amazon EC2 Instance
 script = '#!/bin/bash -xe
-mkdir /tmp/FUCK_YOU'
+mkdir /tmp/Test'
 
 encoded_script = Base64.encode64(script)
 
-instance = ec2.create_instances({
-  image_id: 'ami-1853ac65',
-  min_count: 1,
-  max_count: 1,
-  key_name: key,
-  user_data: encoded_script,
-  instance_type: 't2.micro',
-  placement: {
-    availability_zone: az
-  },
-  network_interfaces: [{
-    device_index: 0,
-    subnet_id: subnet.id},
-    groups: [sg.id],
-    delete_on_termination: true,
-    associate_public_ip_address: true}]
-})
-
+count = Integer ARGV[0]
+while count > 0
+  instance = ec2.create_instances({
+    image_id: 'ami-1853ac65',
+    min_count: 1,
+    max_count: 1,
+    key_name: key,
+    user_data: encoded_script,
+    instance_type: 't2.micro',
+    placement: { availability_zone: az },
+    network_interfaces: [{
+      device_index: 0,
+      subnet_id: subnet.id,
+      groups: [sg.id],
+      delete_on_termination: true,
+      associate_public_ip_address: true}]
+  })
 #Wait for the instance to be created, running, and passed status checks
 ec2.client.wait_until(:instance_status_ok, {instance_ids: [instance.first.id]})
-tag(instance, 'MyInstance')
+tag(instance, "MyInstance#{count}")
+count -= 1
+end
