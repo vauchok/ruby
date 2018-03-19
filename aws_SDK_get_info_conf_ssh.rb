@@ -17,6 +17,7 @@ for r in regions
     if instance.state.name == "running"
       hosts_list << instance.public_dns_name
       instance.tags.each { |tag| hosts_list << tag.value if tag.key == "Name" }
+      hosts_list << instance.key_name
     end
   end
 end
@@ -28,8 +29,8 @@ while i <= hosts_list.size()/2
   out_file.puts("Host #{hosts_list[i+1]}
     HostName #{hosts_list[i]}
     User ec2-user
-    IdentityFile #{home}/.ssh/#{hosts_list[i]}.pem
+    IdentityFile #{home}/.ssh/#{hosts_list[i+2]}.pem
   ")
   out_file.close
-  i += 2
+  i += 3
 end
