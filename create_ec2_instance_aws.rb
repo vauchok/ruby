@@ -3,13 +3,17 @@
 require 'aws-sdk-ec2'
 require 'base64'
 require 'aws-sdk-elasticloadbalancing'
+require 'aws-sdk-autoscaling'
 
-az = 'us-east-1a'
+img = 'ami-1853ac65'
+region = 'us-east-1'
+azone = 'us-east-1a'
+key = 'test'
+itype = 't2.micro'
 vpc_net = '172.31.0.0/16'
 sub_net = '172.31.16.0/20'
-key = 'test'
 
-ec2 = Aws::EC2::Resource.new(region: 'us-east-1')
+ec2 = Aws::EC2::Resource.new(region: region)
 
 def tag(method, name)
   method.create_tags({ tags: [{ key: 'Name', value: name }]})
@@ -30,7 +34,7 @@ tag(igw, 'MyIGW')
 subnet = ec2.create_subnet({
   vpc_id: vpc.vpc_id,
   cidr_block: sub_net,
-  availability_zone: az
+  availability_zone: azone
 })
 tag(subnet, 'MySubnet')
 
@@ -46,7 +50,7 @@ table.associate_with_subnet({ subnet_id: subnet.id })
 #Creating an Amazon EC2 Security Group
 sg = ec2.create_security_group({
   group_name: 'MySecurityGroup',
-  description: 'Security group for MyInstance',
+  description: 'Security group for ELB, ASG',
   vpc_id: vpc.vpc_id
 })
 sg.authorize_ingress({
@@ -69,42 +73,8 @@ sg.authorize_ingress({
 })
 tag(sg, 'MySecurityGroup')
 
-#Creating an Amazon EC2 Instance
-script = '#!/bin/bash -xe
-yum -y install httpd php
-chkconfig httpd on
-/etc/init.d/httpd start
-cd /var/www/html
-echo "Instance 1" > index.html'
-
-encoded_script = Base64.encode64(script)
-
-count = Integer ARGV[0]
-while count > 0
-  instance = ec2.create_instances({
-    image_id: 'ami-1853ac65',
-    min_count: 1,
-    max_count: 1,
-    key_name: key,
-    user_data: encoded_script,
-    instance_type: 't2.micro',
-    placement: { availability_zone: az },
-    network_interfaces: [{
-      device_index: 0,
-      subnet_id: subnet.id,
-      groups: [sg.id],
-      delete_on_termination: true,
-      associate_public_ip_address: true}]
-  })
-  
-#Wait for the instance to be created, running, and passed status checks
-ec2.client.wait_until(:instance_status_ok, {instance_ids: [instance.first.id]})
-tag(instance, "MyInstance#{count}")
-count -= 1
-end
-
 #Creating ELB
-elb = Aws::ElasticLoadBalancing::Client.new(region: 'us-east-1')
+elb = Aws::ElasticLoadBalancing::Client.new(region: region)
 elb.create_load_balancer({
   listeners: [
     {
@@ -119,12 +89,38 @@ elb.create_load_balancer({
   subnets: [subnet.id],
 })
 
-#Registering ec2 instances to ELB
-ec2.instances.each do |instance|
-  if instance.state.name == "running"
-    elb.register_instances_with_load_balancer({
-      instances: [{ instance_id: instance.id}],
-      load_balancer_name: "MyLoadBalancer"
-    })
-  end
-end
+#Creating an Amazon EC2 Instance
+script = '#!/bin/bash -xe
+yum -y install httpd php
+chkconfig httpd on
+/etc/init.d/httpd start
+cd /var/www/html
+echo "Instance 1" > index.html'
+
+encoded_script = Base64.encode64(script)
+
+#Creating ASG
+asg = Aws::AutoScaling::Client.new(region: region)
+asg.create_launch_configuration({
+  launch_configuration_name: "MyLaunchConfig",
+  image_id: img,
+  key_name: key,
+  security_groups: [sg.id],
+  user_data: encoded_script,
+  instance_type: itype,
+  associate_public_ip_address: true
+})
+
+asg.create_auto_scaling_group({
+  auto_scaling_group_name: "MyAutoScalingGroup",
+  launch_configuration_name: "MyLaunchConfig",
+  min_size: 2,
+  max_size: 3,
+  desired_capacity: 2,
+  default_cooldown: 1,
+  availability_zones: [azone],
+  load_balancer_names: ["MyLoadBalancer"],
+  health_check_type: "ELB",
+  health_check_grace_period: 120,
+  vpc_zone_identifier: subnet.id,
+})
