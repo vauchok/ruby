@@ -20,9 +20,19 @@ def tag(method, name)
 end
 
 #Creating an Amazon EC2 VPC
-vpc = ec2.create_vpc({ cidr_block: vpc_net })
-vpc.modify_attribute({ enable_dns_support: { value: true }})
-vpc.modify_attribute({ enable_dns_hostnames: { value: true }})
+vpc = ec2.create_vpc({ 
+  cidr_block: vpc_net
+})
+vpc.modify_attribute({ 
+  enable_dns_support: { 
+    value: true 
+  }
+})
+vpc.modify_attribute({ 
+  enable_dns_hostnames: { 
+    value: true 
+  }
+})
 tag(vpc, 'MyVPC')
 
 #Creating an Internet Gateway and Attaching It to a VPC in Amazon EC2
@@ -39,13 +49,17 @@ subnet = ec2.create_subnet({
 tag(subnet, 'MySubnet')
 
 #Creating an Amazon EC2 Route Table and Associating It with a Subnet
-table = ec2.create_route_table({ vpc_id: vpc.vpc_id })
+table = ec2.create_route_table({ 
+  vpc_id: vpc.vpc_id 
+})
 tag(table, 'MyRouteTable')
 table.create_route({
   destination_cidr_block: '0.0.0.0/0',
   gateway_id: igw.id
 })
-table.associate_with_subnet({ subnet_id: subnet.id })
+table.associate_with_subnet({ 
+  subnet_id: subnet.id 
+})
 
 #Creating an Amazon EC2 Security Group
 sg = ec2.create_security_group({
