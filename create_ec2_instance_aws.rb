@@ -71,7 +71,11 @@ tag(sg, 'MySecurityGroup')
 
 #Creating an Amazon EC2 Instance
 script = '#!/bin/bash -xe
-mkdir /tmp/Test'
+yum -y install httpd php
+chkconfig httpd on
+/etc/init.d/httpd start
+cd /var/www/html
+echo "Instance 1" > index.html'
 
 encoded_script = Base64.encode64(script)
 
@@ -119,7 +123,7 @@ elb.create_load_balancer({
 ec2.instances.each do |instance|
   if instance.state.name == "running"
     elb.register_instances_with_load_balancer({
-      instances: [{ instance_id: "#{instance.id}"}],
+      instances: [{ instance_id: instance.id}],
       load_balancer_name: "MyLoadBalancer"
     })
   end
